@@ -129,7 +129,7 @@ class StrawberryDataset(Dataset):
     def partition_dataset(self):
         num_rows = self.ny.shape[0]
         num_cols = self.ny.shape[1] + 1
-        _fold_ranges = get_fold_ranges(self.n_seq, num_cols, self.n_folds, ex_dates=1, const=1)
+        self._fold_ranges = get_fold_ranges(self.n_seq, num_cols, self.n_folds, ex_dates=1, const=1)
 
         X_train, y_train, X_test, y_test = [], [], [], []
         if self.n_folds > 1:
@@ -138,9 +138,9 @@ class StrawberryDataset(Dataset):
                 _test_limits = []
                 for d_set in range(1, self.n_folds + 1):
                     if d_set != self.k_fold:
-                        _train_limits.append(_fold_ranges[d_set - 1])
+                        _train_limits.append(self._fold_ranges[d_set - 1])
                     else:
-                        _test_limits.append(_fold_ranges[d_set - 1])
+                        _test_limits.append(self._fold_ranges[d_set - 1])
 
                 # Train set
                 X, y = get_sequences(
