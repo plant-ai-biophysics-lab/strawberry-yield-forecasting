@@ -37,9 +37,12 @@ class StrawberryDataset(Dataset):
         self.fnX, self.fny, self.fnX_test, self.fny_test = self.partition_dataset()
         
     def __len__(self):
-        
-        # get number of csv files in folder
-        return len(os.listdir(self.path_to_counts))
+        if self.mode == 'train':
+            return len(self.fnX)
+        elif self.mode == 'test':
+            return len(self.fnX_test)
+        else:
+            raise ValueError("Invalid mode. Choose 'train' or 'test'.")
     
     def __getitem__(self, idx):
         if self.mode == 'train':
@@ -49,7 +52,7 @@ class StrawberryDataset(Dataset):
             X = self.fnX_test[idx].astype(np.float32)
             y = self.fny_test[idx].astype(np.float32)
         else:
-            raise ValueError("Invalid mode. Choose from 'train', 'val', or 'test'.")
+            raise ValueError("Invalid mode. Choose from 'train' or 'test'.")
     
         return torch.tensor(X), torch.tensor(y)
     
