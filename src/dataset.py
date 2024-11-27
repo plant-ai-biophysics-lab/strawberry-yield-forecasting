@@ -10,11 +10,10 @@ from src.util import time_gaps, normalize_data, read_weights, get_sequences, get
 class StrawberryDataset(Dataset):
     
     def __init__(self, path_to_counts, path_to_weights, k_fold, n_seq, seq_l, n_folds, use_weights=True):
-        
         self.mode = 'train'
-        
-        # intialize the labels and feature dimensions
-        self.labels = ['flower','green', 'sw', 'lw', 'pink', 'red', 'gaps']
+
+        # Initialize labels and feature dimensions
+        self.labels = ['flower', 'green', 'sw', 'lw', 'pink', 'red', 'gaps']
         self.n_features = len(self.labels)
         self.n_seq = n_seq
         self.seq_l = seq_l
@@ -22,18 +21,20 @@ class StrawberryDataset(Dataset):
         self.samples_dim = [self.seq_l, self.n_seq, self.n_features]
         self.use_weights = use_weights
         self.k_fold = k_fold
-        
-        # get counts
+
+        # Get counts
         self.path_to_counts = path_to_counts
         self.months, self.days, self.years = self.get_dates(path_to_counts)
-        
+
         self.X, self.y = self.organize_data()
-        self.nX, self.ny = normalize_data(self.X, self.y, len(self.labels))
         
-        # get weights
+        # Normalize data and store scalers
+        self.nX, self.ny, self.X_scaler, self.gaps_scaler, self.y_scaler = normalize_data(self.X, self.y, len(self.labels))
+
+        # Get weights
         self.W = read_weights(path_to_weights)
-        
-        # finalize training data
+
+        # Finalize training data
         self.fnX, self.fny, self.fnX_test, self.fny_test = self.partition_dataset()
         
     def __len__(self):
