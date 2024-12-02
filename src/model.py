@@ -177,3 +177,55 @@ class TransformerDecoder(nn.Module):
         x = self.fc_layers(x)
 
         return x
+    
+class LSTMTransformer(nn.Module):
+    def __init__(self, input_dim, lstm_hidden_dim=128, lstm_layers=2, 
+                 num_heads=4, ff_dim=256, transformer_layers=3, max_seq_len=3, dropout=0.1):
+        super(LSTMTransformer, self).__init__()
+        
+        # LSTM Encoder
+        self.lstm = nn.LSTM(input_dim, lstm_hidden_dim, num_layers=lstm_layers, 
+                            batch_first=True, bidirectional=True, dropout=dropout)
+        
+        # Transformer Decoder
+        self.embedding = nn.Linear(2 * lstm_hidden_dim, ff_dim)  # BiLSTM doubles hidden_dim
+        self.positional_embeddings = nn.Embedding(max_seq_len, ff_dim)
+        
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=ff_dim, nhead=num_heads, dim_feedforward=ff_dim, dropout=dropout
+        )
+        self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=transformer_layers)
+        
+        # Fully Connected Layers
+        self.fc_layers = nn.Sequential(
+            nn.Linear(ff_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 1)  # Single output (regression)
+        )
+    
+    def forward(self, x):
+        # LSTM Encoder
+        lstm_out, _ = self.lstm(x)  # Shape: (batch_size, seq_len, 2 * lstm_hidden_dim)
+        
+        # Transformer Decoder
+        x = self.embedding(lstm_out)  # Project LSTM output to transformer input size
+        seq_len = x.shape[1]
+        
+        # Add positional embeddings
+        positions = torch.arange(seq_len, device=x.device).unsqueeze(0).expand(x.shape[0], seq_len)
+        x = x + self.positional_embeddings(positions)
+        
+        # Permute for transformer compatibility
+        x = x.permute(1, 0, 2)  # Shape: (seq_len, batch_size, ff_dim)
+        memory = torch.zeros_like(x)  # Placeholder memory
+        
+        x = self.transformer_decoder(x, memory)
+        
+        # Sequence-to-one prediction: Use last hidden state
+        x = x[-1, :, :]  # Shape: (batch_size, ff_dim)
+        
+        # Fully Connected Layers
+        x = self.fc_layers(x)
+        
+        return x
