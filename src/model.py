@@ -180,7 +180,7 @@ class TransformerDecoder(nn.Module):
     
 class LSTMTransformer(nn.Module):
     def __init__(self, input_dim, lstm_hidden_dim=128, lstm_layers=2, 
-                 num_heads=4, ff_dim=256, transformer_layers=3, max_seq_len=3, dropout=0.1):
+                 num_heads=4, ff_dim=256, transformer_layers=3, max_seq_len=10, dropout=0.1):
         super(LSTMTransformer, self).__init__()
         
         # LSTM Encoder
@@ -227,5 +227,53 @@ class LSTMTransformer(nn.Module):
         
         # Fully Connected Layers
         x = self.fc_layers(x)
+        
+        return x
+    
+class LSTMTransformerMasked(nn.Module):
+    def __init__(self, input_dim, lstm_hidden_dim, lstm_layers, transformer_hidden_size, num_transformer_layers, num_heads, max_seq_len=10, dropout=0.1):
+        super(LSTMTransformerMasked, self).__init__()
+        
+        # LSTM Encoder
+        self.lstm = nn.LSTM(
+            input_dim, lstm_hidden_dim, num_layers=lstm_layers, 
+            batch_first=True, bidirectional=True, dropout=dropout
+        )
+        
+        # Transformer
+        self.input_projection = nn.Linear(lstm_hidden_dim * 2, transformer_hidden_size)  # Bidirectional LSTM doubles the hidden size
+        self.pos_emb = nn.Embedding(max_seq_len, transformer_hidden_size)
+        self.transformer_blocks = nn.ModuleList([
+            TransformerBlock(transformer_hidden_size, num_heads) for _ in range(num_transformer_layers)
+        ])
+        
+        # Fully connected layers
+        self.fc = nn.Sequential(
+            nn.Linear(transformer_hidden_size, transformer_hidden_size // 2),
+            nn.ReLU(),
+            nn.Linear(transformer_hidden_size // 2, 1)
+        )
+    
+    def forward(self, x):
+        # LSTM Encoder
+        lstm_out, _ = self.lstm(x)  # Output shape: (batch_size, seq_len, 2 * lstm_hidden_dim)
+        
+        # Project LSTM output to Transformer input size
+        x = self.input_projection(lstm_out)
+        
+        # Add positional embeddings
+        seq_len = x.size(1)
+        pos_emb = self.pos_emb(torch.arange(seq_len, device=x.device)).unsqueeze(0)
+        x = x + pos_emb
+        
+        # Transformer blocks
+        for block in self.transformer_blocks:
+            x = block(x)
+        
+        # Get the last hidden state
+        x = x[:, -1, :]
+        
+        # Fully connected layers
+        x = self.fc(x)
         
         return x
