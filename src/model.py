@@ -243,6 +243,11 @@ class LSTMTransformerMasked(nn.Module):
         # Transformer
         self.input_projection = nn.Linear(lstm_hidden_dim * 2, transformer_hidden_size)  # Bidirectional LSTM doubles the hidden size
         self.pos_emb = nn.Embedding(max_seq_len, transformer_hidden_size)
+        self.time_emb = nn.Sequential(
+            nn.Linear(1, transformer_hidden_size),
+            nn.ReLU(),
+            nn.Linear(transformer_hidden_size, transformer_hidden_size)
+        )
         self.transformer_blocks = nn.ModuleList([
             TransformerBlock(transformer_hidden_size, num_heads) for _ in range(num_transformer_layers)
         ])
@@ -261,10 +266,12 @@ class LSTMTransformerMasked(nn.Module):
         # Project LSTM output to Transformer input size
         x = self.input_projection(lstm_out)
         
-        # Add positional embeddings
+        # Add positional embeddings and time embeddings
         seq_len = x.size(1)
         pos_emb = self.pos_emb(torch.arange(seq_len, device=x.device)).unsqueeze(0)
-        x = x + pos_emb
+        time = x[:, :, -1:]
+        time_emb = self.time_emb(time)
+        x = x + pos_emb + time_emb
         
         # Transformer blocks
         for block in self.transformer_blocks:
