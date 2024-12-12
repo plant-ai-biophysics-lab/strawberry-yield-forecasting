@@ -231,8 +231,10 @@ class LSTMTransformer(nn.Module):
         return x
     
 class LSTMTransformerMasked(nn.Module):
-    def __init__(self, input_dim, lstm_hidden_dim, lstm_layers, transformer_hidden_size, num_transformer_layers, num_heads, max_seq_len=10, dropout=0.1):
+    def __init__(self, input_dim, lstm_hidden_dim, lstm_layers, transformer_hidden_size, num_transformer_layers, num_heads, max_seq_len=10, dropout=0.1, use_time_emb=True):
         super(LSTMTransformerMasked, self).__init__()
+        
+        self.use_time_emb = use_time_emb
         
         # LSTM Encoder
         self.lstm = nn.LSTM(
@@ -269,9 +271,12 @@ class LSTMTransformerMasked(nn.Module):
         # Add positional embeddings and time embeddings
         seq_len = x.size(1)
         pos_emb = self.pos_emb(torch.arange(seq_len, device=x.device)).unsqueeze(0)
-        time = x[:, :, -1:]
-        time_emb = self.time_emb(time)
-        x = x + pos_emb + time_emb
+        if self.use_time_emb:
+            time = x[:, :, -1:]
+            time_emb = self.time_emb(time)
+            x = x + pos_emb + time_emb
+        else:
+            x = x + pos_emb
         
         # Transformer blocks
         for block in self.transformer_blocks:
