@@ -123,10 +123,6 @@ def get_sequences(
             
             if phenological:
                 float_weights = [float(element) for element in W_matrix[date]]
-                
-                if time_int:
-                    float_weights.append(1.0)
-                    
                 _weights.append(float_weights)
                 input_sequence = np.multiply(_weights, raw_input_seq)
             else:
