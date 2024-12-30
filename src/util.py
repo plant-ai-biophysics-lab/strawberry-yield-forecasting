@@ -41,18 +41,26 @@ def normalize_data(X, y, n_features):
 
     return nX_Data, ny_Data, X_scaler, gaps_scaler, y_scaler
 
-def read_weights(path):
-    """ This function reads the phenological weights from a csv file and return them into a list variable
+def read_weights(path, skip_titles):
+    """
+    This function reads the phenological weights from a CSV file and returns them as a list,
+    excluding columns with specified titles.
+    
     Args:
-        path (string): path to phenological weights .csv file
+        path (string): Path to phenological weights .csv file.
+        skip_titles (list): List of column titles to exclude.
+        
     Returns:
-        list: list with weights for phenological classes
+        list: List with weights for phenological classes.
     """
     W_matrix = []
-    with open(path,newline='') as csvfile:
-        reader = csv.reader(csvfile)
+    
+    with open(path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)  # Use DictReader to handle column titles
         for row in reader:
-            W_matrix.append(row)    
+            filtered_row = {key: value for key, value in row.items() if key not in skip_titles}
+            W_matrix.append(list(filtered_row.values()))  # Only include values of filtered columns
+            
     return W_matrix
 
 def get_fold_ranges(n_seq,n_dates,n_folds,ex_dates,const):
@@ -115,7 +123,10 @@ def get_sequences(
             
             if phenological:
                 float_weights = [float(element) for element in W_matrix[date]]
-                float_weights.append(1.0)
+                
+                if time_int:
+                    float_weights.append(1.0)
+                    
                 _weights.append(float_weights)
                 input_sequence = np.multiply(_weights, raw_input_seq)
             else:

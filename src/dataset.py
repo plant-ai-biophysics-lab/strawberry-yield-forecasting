@@ -13,7 +13,7 @@ class StrawberryDataset(Dataset):
         self.mode = 'train'
 
         # Initialize labels and feature dimensions
-        self.labels = ['flower', 'green', 'sw', 'lw', 'pink', 'red', 'gaps']
+        self.labels = ['flower', 'green', 'sw', 'lw', 'pink', 'red']
         self.labels = [label for label in self.labels if label not in skip]
 
         self.n_features = len(self.labels)
@@ -36,7 +36,7 @@ class StrawberryDataset(Dataset):
         self.nX, self.ny, self.X_scaler, self.gaps_scaler, self.y_scaler = normalize_data(self.X, self.y, len(self.labels))
 
         # Get weights
-        self.W = read_weights(path_to_weights)
+        self.W = read_weights(path_to_weights, self.skip)
 
         # Finalize training data
         self.fnX, self.fny, self.fnX_test, self.fny_test = self.partition_dataset()
@@ -133,7 +133,7 @@ class StrawberryDataset(Dataset):
     
     def partition_dataset(self):
         num_rows = self.ny.shape[0]
-        num_cols = self.ny.shape[1] + 1
+        num_cols = self.ny.shape[1]
         self._fold_ranges = get_fold_ranges(self.n_seq, num_cols, self.n_folds, ex_dates=1, const=1)
 
         X_train, y_train, X_test, y_test = [], [], [], []
