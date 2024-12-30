@@ -74,7 +74,9 @@ def get_fold_ranges(n_seq,n_dates,n_folds,ex_dates,const):
         _fold_ranges.append(_fold_range)
     return _fold_ranges
 
-def get_sequences(samples_dim,row_idx,start,stop,time_spacing,W_matrix,X_Data,y_Data,phenological=True):
+def get_sequences(
+    samples_dim, row_idx, start, stop, time_spacing, W_matrix, X_Data, y_Data, phenological=True, time_int=False
+):
     """ This function generates the X and y data to be used as input wether it is used for training or testing. 
     If not specified, the phenological weights are applied by default.
     Args:
@@ -92,40 +94,43 @@ def get_sequences(samples_dim,row_idx,start,stop,time_spacing,W_matrix,X_Data,y_
     """
     X, y = [], []
     for i in range(start,stop):
+        
         sum_gaps = []
         gap_sum = 0
         gaps_vector = time_spacing[i:i+samples_dim[0]] # This computes te cumulative days between dates in the sequence
-        max_gaps = np.max(time_spacing)
+
         for gap_idx in range(len(gaps_vector) - 1,-1,-1):
             gap_sum += gaps_vector[gap_idx]
             sum_gaps.append(gap_sum)
+            
         sum_gaps.reverse()
         max_sum_gaps = np.max(sum_gaps)
         raw_input_seq = []
         input_sequence = []
         input_target = []
         _weights = []
-        occ_fy = 1+((i+samples_dim[0]-1)/len(time_spacing))
+        
         for date_idx,date in enumerate(sum_gaps):
             raw_input_seq.append(X_Data[row_idx,(date_idx+i)*(samples_dim[2]):((date_idx+i)*(samples_dim[2]))+(samples_dim[2])])
+            
             if phenological:
                 float_weights = [float(element) for element in W_matrix[date]]
                 float_weights.append(1.0)
                 _weights.append(float_weights)
-                occ_fx = 1+((i+date_idx)/len(time_spacing))
-                #corrected_input = np.multiply(raw_input_seq, [0.7, 0.7, 0.8, 0.8, 0.8, 1.1, 1.0])#[1.3, 1.2, 1.3, 1.17, 1.5, 1.0, 1.0]
-                #corrected_input = np.multiply(raw_input_seq, [occ_fx, occ_fx, occ_fx, 1.0, 1.0, 1.0, 1.0]) # Using prob_occ
-                #input_sequence = np.multiply(_weights, corrected_input)
                 input_sequence = np.multiply(_weights, raw_input_seq)
             else:
                 input_sequence = np.array(raw_input_seq)
+        
         input_target.append(y_Data[row_idx,i+samples_dim[0]-1]*1.0)
-        #norm_gaps_vector = [x / max_gaps for x in gaps_vector] # This normalize the gaps vector
-        norm_sum_gaps = [x / max_sum_gaps for x in sum_gaps] # This normalize the cumulative gaps vector 
-        input_sequence[:,6] = norm_sum_gaps#norm_gaps_vector # use gaps vector
-        input_X = input_sequence[:,:] # Remove certain count features
-        #print('input seq.',input_sequence)
-        #input_X = input_sequence
+        
+        if time_int:
+            norm_sum_gaps = [x / max_sum_gaps for x in sum_gaps] # This normalize the cumulative gaps vector 
+            norm_sum_gaps = np.array(norm_sum_gaps).reshape(-1,1)
+            input_X = np.hstack((input_sequence, norm_sum_gaps))
+        else:
+            input_X = input_sequence
+            
         X.append(input_X)
         y.append(input_target)
+        
     return X,y

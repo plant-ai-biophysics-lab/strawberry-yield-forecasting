@@ -9,11 +9,13 @@ from src.util import time_gaps, normalize_data, read_weights, get_sequences, get
 
 class StrawberryDataset(Dataset):
     
-    def __init__(self, path_to_counts, path_to_weights, k_fold, n_seq, seq_l, n_folds, use_weights=True):
+    def __init__(self, path_to_counts, path_to_weights, k_fold, n_seq, seq_l, n_folds, use_weights=True, skip=[''], time_int=False):
         self.mode = 'train'
 
         # Initialize labels and feature dimensions
         self.labels = ['flower', 'green', 'sw', 'lw', 'pink', 'red', 'gaps']
+        self.labels = [label for label in self.labels if label not in skip]
+
         self.n_features = len(self.labels)
         self.n_seq = n_seq
         self.seq_l = seq_l
@@ -21,6 +23,8 @@ class StrawberryDataset(Dataset):
         self.samples_dim = [self.seq_l, self.n_seq, self.n_features]
         self.use_weights = use_weights
         self.k_fold = k_fold
+        self.skip = skip
+        self.time_int = time_int
 
         # Get counts
         self.path_to_counts = path_to_counts
@@ -146,7 +150,7 @@ class StrawberryDataset(Dataset):
                 # Train set
                 X, y = get_sequences(
                     self.samples_dim, row_idx, _train_limits[0][0], _train_limits[0][self.n_seq],
-                    self.delta_t, self.W, self.nX, self.ny, self.use_weights
+                    self.delta_t, self.W, self.nX, self.ny, self.use_weights, self.time_int
                 )
                 X_train.append(X)
                 y_train.append(y)
@@ -154,7 +158,7 @@ class StrawberryDataset(Dataset):
                 # Test set
                 X, y = get_sequences(
                     self.samples_dim, row_idx, _test_limits[0][0], _test_limits[0][self.n_seq],
-                    self.delta_t, self.W, self.nX, self.ny, self.use_weights
+                    self.delta_t, self.W, self.nX, self.ny, self.use_weights, self.time_int
                 )
                 X_test.append(X)
                 y_test.append(y)
