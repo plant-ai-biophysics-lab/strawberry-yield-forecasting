@@ -21,7 +21,8 @@ class LSTMModel(nn.Module):
         self.fc_layers = nn.Sequential(
             nn.Linear(20, 20),
             nn.ReLU(),
-            nn.Linear(20, 1)
+            nn.Linear(20, 1),
+            nn.ReLU() # remove negative values from output
         )
 
     def forward(self, x):
@@ -288,4 +289,63 @@ class LSTMTransformerMasked(nn.Module):
         # Fully connected layers
         x = self.fc(x)
         
+        return x
+    
+class TransformerEncoderTransformerMasked(nn.Module):
+    def __init__(self, input_dim, transformer_hidden_size, num_encoder_layers,
+                 num_transformer_layers, num_heads, max_seq_len=10, dropout=0.1, use_time_emb=True):
+        super(TransformerEncoderTransformerMasked, self).__init__()
+        
+        self.use_time_emb = use_time_emb
+        
+        # Transformer encoder
+        self.input_projection = nn.Linear(input_dim, transformer_hidden_size)
+        self.pos_emb = nn.Embedding(max_seq_len, transformer_hidden_size)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=transformer_hidden_size,
+            nhead=num_heads,
+            dropout=dropout,
+            batch_first=True
+        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoder_layers)
+        
+        if self.use_time_emb:
+            self.time_emb = nn.Sequential(
+                nn.Linear(1, transformer_hidden_size),
+                nn.ReLU(),
+                nn.Linear(transformer_hidden_size, transformer_hidden_size)
+            )
+        
+        # Transformer decoder
+        self.transformer_blocks = nn.ModuleList([
+            TransformerBlock(transformer_hidden_size, num_heads) 
+            for _ in range(num_transformer_layers)
+        ])
+        
+        # Fully connected layers
+        self.fc = nn.Sequential(
+            nn.Linear(transformer_hidden_size, transformer_hidden_size // 2),
+            nn.ReLU(),
+            nn.Linear(transformer_hidden_size // 2, 1)
+        )
+    
+    def forward(self, x):
+        batch_size, seq_len, _ = x.shape
+        
+        # Transformer Encoder
+        x = self.input_projection(x)
+        pos_emb = self.pos_emb(torch.arange(seq_len, device=x.device)).unsqueeze(0)
+        x = x + pos_emb
+        if self.use_time_emb:
+            time = x[:, :, -1:]  # (batch_size, seq_len, 1)
+            time_emb = self.time_emb(time)
+            x = x + time_emb
+        x = self.transformer_encoder(x)
+        
+        # Transformer decoder
+        for block in self.transformer_blocks:
+            x = block(x)
+        
+        x = x[:, -1, :]
+        x = self.fc(x)
         return x
